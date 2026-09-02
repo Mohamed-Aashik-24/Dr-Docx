@@ -1,0 +1,6 @@
+{
+  "name": "Dr Docx",
+  "description": "ML-based offline DOCX publication formatting tool.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
