@@ -57,5 +57,17 @@ DEFAULT_CONFIG = FormattingConfig()
 PROJECT_ROOT = pathlib.Path(__file__).parent.parent
 MODEL_DIR = PROJECT_ROOT / 'models'
 MODEL_PATH = MODEL_DIR / 'document_classifier.pkl'
+PYTORCH_MODEL_PATH = MODEL_DIR / 'document_element_model.pt'
 VECTORIZER_PATH = MODEL_DIR / 'tfidf_vectorizer.pkl'
+LABEL_ENCODER_PATH = MODEL_DIR / 'label_encoder.joblib'
 CONFIDENCE_THRESHOLD = 0.6
+
+# Neural Network Classifier Hyperparameters
+LEARNING_RATE = 0.001
+BATCH_SIZE = 32
+EPOCHS = 100
+EARLY_STOPPING_PATIENCE = 8
+DROPOUT_RATE_1 = 0.3
+DROPOUT_RATE_2 = 0.2
+RANDOM_SEED = 42
+

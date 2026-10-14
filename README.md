@@ -1,8 +1,6 @@
-# ML-Based DOCX Publication Formatter
+# ML and DL-Based DOCX Publication Formatter
 
-An end-to-end, **100% offline Machine Learning & Rule-Engine Pipeline** for transforming unformatted manuscript documents (`.docx`) into publication-ready books, textbooks, and academic papers following strict publishing standards.
-
-Includes a **Python Flask Backend API** powering a modern **React + Vite Frontend Dashboard**.
+An end-to-end, **100% offline Machine Learning, Deep Learning & Rule-Engine Pipeline** for transforming unformatted manuscript documents (`.docx`) into publication-ready books, textbooks, and academic papers following strict publishing standards.
 
 ---
 
@@ -60,7 +58,7 @@ Includes a **Python Flask Backend API** powering a modern **React + Vite Fronten
                  ▼                                 ▼                               ▼
        ┌───────────────────┐             ┌───────────────────┐           ┌───────────────────┐
        │   DocxParser      │             │StructureRecognizer│           │  DocxGenerator    │
-       │ (Element Extract) │ ──────────► │(ML + Rule Engine) │ ────────► │(DocX Formatting)  │
+      │ (Element Extract) │ ──────────► │(ML + DL + Rules)  │ ────────► │(DocX Formatting)  │
        └───────────────────┘             └───────────────────┘           └───────────────────┘
 ```
 
@@ -79,16 +77,17 @@ Includes a **Python Flask Backend API** powering a modern **React + Vite Fronten
 │   │   ├── parser.py            # DocxParser for extracting paragraphs, tables, and inline images
 │   │   ├── feature_extractor.py # Extract 25 structural features + TF-IDF vectors
 │   │   ├── rule_engine.py       # Heuristic & pattern classification rules
-│   │   ├── classifier.py        # RandomForestClassifier wrapper with cross-validation
-│   │   ├── structure_recognizer.py # 2-pass recognizer (Rules -> ML -> Contextual Rules)
+│   │   ├── classifier.py        # PyTorch MLP deep-learning classifier
+│   │   ├── structure_recognizer.py # Hybrid recognizer (Rules -> ML/DL -> Contextual Rules)
 │   │   ├── formatter.py         # Paragraph & table styling logic (margins, font, spacing, blue headings)
 │   │   ├── generator.py         # DocxGenerator building output document
 │   │   └── gui.py               # Tkinter desktop GUI
 │   ├── data/
 │   │   └── training_data.py     # Synthetic & template dataset generator (~5,000 samples)
 │   └── models/
-│       ├── document_classifier.pkl  # Trained Random Forest model
-│       └── tfidf_vectorizer.pkl     # Fitted TF-IDF vectorizer
+│       ├── document_element_model.pt # Trained PyTorch deep-learning model
+│       ├── label_encoder.joblib      # Encoded document-element labels
+│       └── tfidf_vectorizer.pkl      # Fitted TF-IDF vectorizer
 ├── Frontend/
 │   ├── package.json             # Node dependencies (React 19, Vite, Tailwind CSS, Lucide)
 │   ├── vite.config.ts           # Vite server configuration with API proxy to port 5000
@@ -97,7 +96,7 @@ Includes a **Python Flask Backend API** powering a modern **React + Vite Fronten
 │       ├── components/
 │       │   ├── FormatView.tsx   # Manuscript upload & auto-download UI
 │       │   ├── AnalyzeView.tsx  # Interactive structure classification inspector
-│       │   ├── TrainView.tsx    # One-click ML model retraining panel
+│       │   ├── TrainView.tsx    # One-click ML/DL model retraining panel
 │       │   ├── SettingsPanel.tsx# Dynamic typography & margin preferences
 │       │   └── Sidebar.tsx      # Sidebar navigation
 │       └── types.ts             # TypeScript definitions
@@ -181,7 +180,7 @@ python run.py --analyze input_manuscript.docx
 | `GET` | `/api/health` | Health check and model status |
 | `POST` | `/api/format` | Upload `.docx` file, receive formatted `.docx` download |
 | `POST` | `/api/analyze` | Upload `.docx` file, receive JSON list of element classifications |
-| `POST` | `/api/train` | Retrain ML model and return accuracy metrics |
+| `POST` | `/api/train` | Retrain ML/DL model and return accuracy metrics |
 | `GET` | `/api/settings` | Retrieve current formatting configuration |
 | `POST` | `/api/settings` | Update font name, line spacing, or margins |
 
@@ -189,6 +188,7 @@ python run.py --analyze input_manuscript.docx
 
 ## 📌 Model Architecture & Limitations
 
+- **Machine Learning and Deep Learning**: Rule-based heuristics handle clear cases, while a PyTorch Multilayer Perceptron (`DocumentElementNetwork`) performs deep-learning classification for uncertain document elements.
 - **Classifier Model**: PyTorch Multilayer Perceptron (`DocumentElementNetwork`).
 - **Input Features**: Concatenation of 25 structural metadata features + 200 TF-IDF n-gram text features.
 - **Weights & Checkpoint Persistence**:

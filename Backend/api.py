@@ -3,11 +3,11 @@ Flask API server for the ML-Based DOCX Formatting System.
 Serves endpoints consumed by the React frontend.
 
 Endpoints:
-  GET  /api/health     → Health check
-  POST /api/format     → Upload DOCX, format it, return formatted DOCX
-  POST /api/analyze    → Upload DOCX, classify elements, return JSON
-  POST /api/train      → Retrain the ML model, return accuracy metrics
-  POST /api/settings   → Update formatting config (font, margins, spacing)
+  GET  /api/health     -> Health check
+  POST /api/format     -> Upload DOCX, format it, return formatted DOCX
+  POST /api/analyze    -> Upload DOCX, classify elements, return JSON
+  POST /api/train      -> Retrain the ML model, return accuracy metrics
+  POST /api/settings   -> Update formatting config (font, margins, spacing)
 """
 
 from flask import Flask, request, send_file, jsonify
@@ -19,7 +19,6 @@ import time
 import shutil
 import io
 
-# Ensure the Backend directory is on sys.path so `src` and `data` imports work
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
@@ -34,20 +33,19 @@ from docx.shared import Pt, Cm
 app = Flask(__name__)
 CORS(app, origins=['http://localhost:3000', 'http://127.0.0.1:3000'])
 
-# ──────────────── Shared state ────────────────
 current_config = FormattingConfig()
 
-
-# ──────────────── Health ────────────────
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({
         'status': 'ok',
-        'model_loaded': os.path.exists(os.path.join(BASE_DIR, 'models', 'document_classifier.pkl')),
+        'model_loaded': (
+            os.path.exists(os.path.join(BASE_DIR, 'models', 'hybrid_document_model.pt'))
+            or os.path.exists(os.path.join(BASE_DIR, 'models', 'document_element_model.pt'))
+            or os.path.exists(os.path.join(BASE_DIR, 'models', 'document_classifier.pkl'))
+        ),
     })
 
-
-# ──────────────── Format Document ────────────────
 @app.route('/api/format', methods=['POST'])
 def format_document():
     if 'file' not in request.files:
@@ -67,15 +65,12 @@ def format_document():
         file.save(input_path)
         start_time = time.time()
 
-        # 1. Parse
         parser = DocxParser()
         parsed_doc = parser.parse(input_path)
 
-        # 2. Classify
         recognizer = StructureRecognizer()
         classified = recognizer.recognize(parsed_doc)
 
-        # 3. Generate formatted output
         generator = DocxGenerator(config=current_config)
         generator.generate(classified, output_path)
 
@@ -104,8 +99,6 @@ def format_document():
         except Exception:
             pass
 
-
-# ──────────────── Analyze Document ────────────────
 @app.route('/api/analyze', methods=['POST'])
 def analyze_document():
     if 'file' not in request.files:
@@ -163,8 +156,6 @@ def analyze_document():
         except Exception:
             pass
 
-
-# ──────────────── Train Model ────────────────
 @app.route('/api/train', methods=['POST'])
 def train_model():
     try:
@@ -173,11 +164,10 @@ def train_model():
         result = classifier.train()
         elapsed = round(time.time() - start_time, 2)
 
-        # Map keys to match what frontend expects: {accuracy, samples, features}
         response = {
-            'accuracy': result.get('accuracy', result.get('accuracy', 0)),
-            'samples': result.get('num_samples', result.get('samples', 0)),
-            'features': result.get('num_features', result.get('features', 0)),
+            'accuracy': result.get('accuracy', 0),
+            'samples': result.get('num_samples', 0),
+            'features': result.get('num_features', 0),
             'elapsed': f'{elapsed}s',
         }
 
@@ -192,8 +182,6 @@ def train_model():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-
-# ──────────────── Settings ────────────────
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
     return jsonify({
@@ -204,7 +192,6 @@ def get_settings():
         'marginLeft': round(current_config.left_margin.cm, 2),
         'marginRight': round(current_config.right_margin.cm, 2),
     })
-
 
 @app.route('/api/settings', methods=['POST'])
 def update_settings():
@@ -234,8 +221,6 @@ def update_settings():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
-# ──────────────── Main ────────────────
 if __name__ == '__main__':
     print("=" * 60)
     print("  ML DOCX Formatting API Server")

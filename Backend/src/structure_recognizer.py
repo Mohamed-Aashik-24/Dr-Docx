@@ -50,7 +50,10 @@ class StructureRecognizer:
                 
         # Batch ML inference
         if ml_pending_items:
-            ml_results = self.classifier.predict_batch(ml_pending_items)
+            if self.classifier.is_trained():
+                ml_results = self.classifier.predict_batch(ml_pending_items)
+            else:
+                ml_results = [(ElementType.BODY, 0.5) for _ in ml_pending_items]
             for idx, (elem_type, conf) in zip(ml_pending_indices, ml_results):
                 element = document.elements[idx]
                 if conf < CONFIDENCE_THRESHOLD:
@@ -170,4 +173,20 @@ class StructureRecognizer:
                     ce.element_type = ElementType.FIGURE_CAPTION
                     ce.source = 'context'
                     
+        # Collapse consecutive blank elements to prevent excessive whitespace
+        prev_was_blank = False
+        for ce in classified:
+            if isinstance(ce.element, ParsedTable):
+                prev_was_blank = False
+                continue
+            text = getattr(ce.element, 'text', '').strip()
+            if ce.element_type == ElementType.BLANK or (not text and not getattr(ce.element, 'has_image', False)):
+                if prev_was_blank:
+                    # Mark consecutive blanks so generator can skip them
+                    ce.element_type = ElementType.BLANK
+                    ce.confidence = 0.0  # Signal to generator to suppress
+                prev_was_blank = True
+            else:
+                prev_was_blank = False
+                
         return classified

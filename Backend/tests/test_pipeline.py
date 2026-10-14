@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import numpy as np
+import torch
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -11,6 +12,7 @@ from src.config import ElementType, FormattingConfig, DEFAULT_CONFIG
 from src.feature_extractor import FeatureExtractor
 from src.rule_engine import RuleEngine
 from data.training_data import generate_training_data
+from src.neural_model import DocumentElementNetwork
 from src.classifier import DocumentClassifier
 from src.parser import DocxParser, ParsedElement, ParsedTable
 from src.structure_recognizer import StructureRecognizer
@@ -99,6 +101,70 @@ class TestTrainingData(unittest.TestCase):
         self.assertIn("reference_entry", unique_labels)
 
 
+class TestNeuralModel(unittest.TestCase):
+    def test_construction_and_forward(self):
+        input_size = 225
+        num_classes = 15
+        model = DocumentElementNetwork(input_size=input_size, num_classes=num_classes)
+        x = torch.randn(8, input_size)
+        logits = model(x)
+        self.assertEqual(logits.shape, (8, num_classes))
+
+
+class TestDocumentClassifier(unittest.TestCase):
+    def test_train_and_predict(self):
+        # Force CPU for test reproducibility
+        classifier = DocumentClassifier(device="cpu")
+        res = classifier.train(epochs=3, batch_size=32)
+        
+        self.assertIn("accuracy", res)
+        self.assertIn("validation_accuracy", res)
+        self.assertIn("macro_f1", res)
+        self.assertIn("num_samples", res)
+        self.assertIn("num_features", res)
+        self.assertEqual(res["model_type"], "PyTorch MLP")
+        self.assertEqual(res["device"], "cpu")
+        self.assertTrue(classifier.is_trained())
+
+        # Test single item prediction
+        elem_type, conf = classifier.predict("CHAPTER 1 Introduction", is_bold=True, font_size=16.0)
+        self.assertIsInstance(elem_type, ElementType)
+        self.assertIsInstance(conf, float)
+        self.assertGreaterEqual(conf, 0.0)
+        self.assertLessEqual(conf, 1.0)
+
+        # Test batch prediction
+        items = [
+            {"text": "1.1 Background", "is_bold": True, "font_size": 14.0, "position_ratio": 0.1},
+            {"text": "This is a body paragraph.", "is_bold": False, "font_size": 12.0, "position_ratio": 0.5}
+        ]
+        batch_results = classifier.predict_batch(items)
+        self.assertEqual(len(batch_results), 2)
+        for t, c in batch_results:
+            self.assertIsInstance(t, ElementType)
+            self.assertIsInstance(c, float)
+            self.assertGreaterEqual(c, 0.0)
+            self.assertLessEqual(c, 1.0)
+
+        # Test save and load
+        save_res = classifier.load()
+        self.assertTrue(save_res)
+        self.assertTrue(classifier.is_trained())
+
+    def test_missing_model_file_load(self):
+        classifier = DocumentClassifier(device="cpu")
+        # Artificially test with non-existent path
+        import src.config as cfg
+        original_pt = cfg.PYTORCH_MODEL_PATH
+        cfg.PYTORCH_MODEL_PATH = cfg.MODEL_DIR / "non_existent_model_file.pt"
+        try:
+            res = classifier.load()
+            self.assertFalse(res)
+            self.assertFalse(classifier.is_trained())
+        finally:
+            cfg.PYTORCH_MODEL_PATH = original_pt
+
+
 class TestEndToEnd(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -131,9 +197,9 @@ class TestEndToEnd(unittest.TestCase):
         doc.save(path)
         
     def test_full_pipeline(self):
-        # Train classifier
-        classifier = DocumentClassifier()
-        classifier.train()
+        # Train classifier with small epochs for fast unit test
+        classifier = DocumentClassifier(device="cpu")
+        classifier.train(epochs=3, batch_size=32)
         
         # Parse
         parser = DocxParser()
@@ -153,6 +219,33 @@ class TestEndToEnd(unittest.TestCase):
         from docx import Document
         out_doc = Document(self.output_path)
         self.assertGreater(len(out_doc.paragraphs), 0)
+
+    def test_blank_space_suppression(self):
+        # Create doc with 5 consecutive blank lines
+        blank_doc_path = os.path.join(self.temp_dir.name, "blank_input.docx")
+        blank_out_path = os.path.join(self.temp_dir.name, "blank_output.docx")
+        
+        from docx import Document
+        doc = Document()
+        doc.add_paragraph("Paragraph 1")
+        doc.add_paragraph("")
+        doc.add_paragraph("   ")
+        doc.add_paragraph("\n")
+        doc.add_paragraph("\t")
+        doc.add_paragraph("Paragraph 2")
+        doc.save(blank_doc_path)
+        
+        parser = DocxParser()
+        parsed_doc = parser.parse(blank_doc_path)
+        recognizer = StructureRecognizer()
+        classified = recognizer.recognize(parsed_doc)
+        
+        generator = DocxGenerator()
+        generator.generate(classified, blank_out_path)
+        
+        out_doc = Document(blank_out_path)
+        # Should have far fewer paragraphs than original because 4 blanks are collapsed
+        self.assertLess(len(out_doc.paragraphs), len(parsed_doc.elements))
 
 
 if __name__ == '__main__':

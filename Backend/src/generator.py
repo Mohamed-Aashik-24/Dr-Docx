@@ -82,6 +82,7 @@ class DocxGenerator:
         title_page_active = False
         title_page_completed = False
         i = 0
+        consecutive_blank_count = 0
         
         while i < len(classified_elements):
             ce = classified_elements[i]
@@ -173,9 +174,18 @@ class DocxGenerator:
                 p_trail.paragraph_format.space_after = Pt(6)
             
             elif isinstance(element, ParsedElement):
+                # Reset blank counter when we encounter non-blank content
+                if element_type != ElementType.BLANK:
+                    consecutive_blank_count = 0
+
                 if element_type == ElementType.BLANK:
-                    paragraph = doc.add_paragraph()
-                    self.formatter.format_paragraph(paragraph, element_type)
+                    consecutive_blank_count += 1
+                    if consecutive_blank_count <= 1:
+                        # Allow at most one blank paragraph between content
+                        paragraph = doc.add_paragraph()
+                        self.formatter.format_paragraph(paragraph, element_type)
+                    i += 1
+                    continue
                 elif element.has_image and element.image_data:
                     paragraph = doc.add_paragraph()
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER

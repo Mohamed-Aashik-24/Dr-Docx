@@ -243,7 +243,10 @@ class DocumentFormatter:
             line_spacing = 1.5
             
         elif element_type == ElementType.BLANK:
+            space_before = Pt(0)
             space_after = Pt(0)
+            line_spacing = 0.5  # Minimal line spacing to reduce blank height
+            font_size = Pt(2)   # Tiny font to minimize blank paragraph height
             
         pf.alignment = alignment
         pf.space_before = space_before
