@@ -8,8 +8,12 @@ Includes a **Python Flask Backend API** powering a modern **React + Vite Fronten
 
 ## 🌟 Key Features
 
-### 🧠 Intelligent Machine Learning & Structure Recognition
-- **Hybrid Classification Engine**: Combines a Random Forest classifier (TF-IDF + 25 structural features) with heuristic rules and contextual post-processing.
+### 🧠 Intelligent Deep Learning & Structure Recognition
+- **Deep Learning MLP Architecture**: Uses a PyTorch Multilayer Perceptron (`DocumentElementNetwork`) combining 200 TF-IDF text features with 25 document-formatting metadata features (bold/italic flags, font size, position ratio, line counts, regex patterns).
+  - **Network Structure**: `Linear(input_size, 256)` -> `ReLU` -> `Dropout(0.3)` -> `Linear(256, 128)` -> `ReLU` -> `Dropout(0.2)` -> `Linear(128, num_classes)`
+  - **Training**: Optimised with `Adam` (learning rate `0.001`), `CrossEntropyLoss`, mini-batch dataloaders (`batch_size=32`), early stopping with patience (`8` epochs), and stratified train/val split.
+  - **Device Support**: Automatic GPU acceleration with CUDA when available; falls back smoothly to CPU.
+  - **Model Checkpoint**: Weights saved to `models/document_element_model.pt` via `torch.save()`.
 - **Recognized Element Types**:
   - `TITLE`, `AUTHOR`, `CHAPTER_HEADING`, `SECTION_HEADING`, `SUBSECTION_HEADING`
   - `BODY`, `LIST_ITEM`, `FIGURE`, `FIGURE_CAPTION`, `TABLE`, `TABLE_CAPTION`
@@ -180,6 +184,21 @@ python run.py --analyze input_manuscript.docx
 | `POST` | `/api/train` | Retrain ML model and return accuracy metrics |
 | `GET` | `/api/settings` | Retrieve current formatting configuration |
 | `POST` | `/api/settings` | Update font name, line spacing, or margins |
+
+---
+
+## 📌 Model Architecture & Limitations
+
+- **Classifier Model**: PyTorch Multilayer Perceptron (`DocumentElementNetwork`).
+- **Input Features**: Concatenation of 25 structural metadata features + 200 TF-IDF n-gram text features.
+- **Weights & Checkpoint Persistence**:
+  - Neural Network weights saved to `models/document_element_model.pt` via `torch.save()`.
+  - TF-IDF vectorizer saved to `models/tfidf_vectorizer.pkl` via `joblib`.
+  - Label encoder saved to `models/label_encoder.joblib` via `joblib`.
+- **Execution Device**: Defaults to CPU execution, automatically uses GPU CUDA acceleration when available.
+- **Limitations**:
+  - The training dataset currently uses synthetic template manuscript data (~5,000 samples).
+  - This first deep-learning iteration uses a feature-based MLP rather than a Transformer architecture (e.g. BERT / DistilBERT).
 
 ---
 
